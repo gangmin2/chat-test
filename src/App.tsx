@@ -93,7 +93,11 @@ const App: React.FC = () => {
       });
       client.publish({
         destination: `/api/pub/${workspaceId}`,
-        body: 'First Message',
+        body: JSON.stringify({
+          messageType: "ENTER",
+          message: `${username}님이 입장했습니다.`,
+          senderName : username,
+        }),
         headers: { Authorization: TOKEN },
       });
     },
@@ -114,7 +118,7 @@ const App: React.FC = () => {
       setInputMessage('');
     }
   };
-  
+
   return (
     <div>
       <div>
