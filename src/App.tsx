@@ -60,7 +60,6 @@ const App: React.FC = () => {
           body: JSON.stringify({
             messageType: 'ENTER',
             message: `${username} 님이 입장했습니다.`,
-            senderName: username,
           }),
           headers: { Authorization: TOKEN },
         });
@@ -71,7 +70,6 @@ const App: React.FC = () => {
           body: JSON.stringify({
             messageType: 'EXIT',
             message: `${username} 님이 퇴장했습니다.`,
-            senderName: username,
           }),
           headers: { Authorization: TOKEN },
         });
@@ -94,7 +92,6 @@ const App: React.FC = () => {
     const message: Message = {
       messageType: 'TALK',
       message: inputMessage,
-      senderName: username,
     };
 
     const stringifiedMessage = JSON.stringify(message);
