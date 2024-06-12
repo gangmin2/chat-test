@@ -12,6 +12,10 @@ interface Message {
   message: string;
   senderName: string;
 }
+interface PubMessage {
+  messageType: 'TALK' | 'ENTER' | 'EXIT';
+  message: string;
+}
 
 // Bubble 컴포넌트의 prop 타입을 정의하는 인터페이스
 interface BubbleProps {
@@ -89,7 +93,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const message: Message = {
+    const message: PubMessage = {
       messageType: 'TALK',
       message: inputMessage,
     };
