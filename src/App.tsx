@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import './App.css'
 import { Client } from '@stomp/stompjs';
 
 const BASE_URI: string = 'ws://localhost:8080';
