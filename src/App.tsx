@@ -77,7 +77,6 @@ const App: React.FC = () => {
       Authorization: TOKEN,
     },
     reconnectDelay: 5000,
-
     onConnect: () => {
       client.subscribe(`/api/sub/${workspaceId}`, message => {
         if (message.body) {
@@ -96,11 +95,20 @@ const App: React.FC = () => {
         body: JSON.stringify({
           messageType: "ENTER",
           message: `${username}님이 입장했습니다.`,
-          senderName : username,
         }),
         headers: { Authorization: TOKEN },
       });
     },
+    onDisconnect: () => {
+      client.publish({
+        destination: `/api/pub/${workspaceId}`,
+        body: JSON.stringify({
+          messageType: "EXIT",
+          message: `${username}님이 퇴장했습니다.`,
+        }),
+        headers: { Authorization: TOKEN },
+      });
+    }
   });
 
   const sendMessage = () => {
