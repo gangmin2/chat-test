@@ -1,23 +1,22 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { StompConfig, Client } from '@stomp/stompjs';
+import React, { FormEvent, useEffect, useRef, useState } from 'react';
+import { StompConfig, Client, IMessage } from '@stomp/stompjs';
 
 const BASE_URI: string = 'ws://localhost:8080';
 const TOKEN: string = 'accessToken';
 const workspaceId: number = 1;
 const username: string = 'user';
 
-// 메시지 타입을 정의하는 인터페이스
 interface Message {
   messageType: 'TALK' | 'ENTER' | 'EXIT';
   message: string;
   senderName: string;
 }
+
 interface PubMessage {
   messageType: 'TALK' | 'ENTER' | 'EXIT';
   message: string;
 }
 
-// Bubble 컴포넌트의 prop 타입을 정의하는 인터페이스
 interface BubbleProps {
   messageType: 'TALK' | 'ENTER' | 'EXIT';
   message: string;
@@ -29,10 +28,12 @@ const Bubble: React.FC<BubbleProps> = ({ messageType, message, senderName }) => 
     return <p>{message}</p>;
   }
   if (messageType === 'TALK') {
-    return <div style={{ margin: '16px 0' }} >
-      <p style={{ margin: '0', }}>{senderName}</p>
-      <p style={{ backgroundColor: '#eee', width: 'fit-content', padding: '4px 8px', borderRadius: '8px', margin: '0', }}>{message}</p>
-    </div>;
+    return (
+      <div style={{ margin: '16px 0' }}>
+        <p style={{ margin: '0' }}>{senderName}</p>
+        <p style={{ backgroundColor: '#eee', width: 'fit-content', padding: '4px 8px', borderRadius: '8px', margin: '0' }}>{message}</p>
+      </div>
+    );
   }
   return null;
 };
@@ -40,6 +41,7 @@ const Bubble: React.FC<BubbleProps> = ({ messageType, message, senderName }) => 
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [isConnected, setIsConnected] = useState(false);
   const clientRef = useRef<Client | null>(null);
 
   useEffect(() => {
@@ -55,13 +57,17 @@ const App: React.FC = () => {
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
       beforeConnect: () => {
-        console.log('before connected');
+        console.log('Attempting to connect...');
       },
       onConnect: () => {
-        client.subscribe(`/api/sub/${workspaceId}`, (message) => {
-          const newMessage = JSON.parse(message.body);
+        console.log('Connected to WebSocket');
+        setIsConnected(true);
+
+        client.subscribe(`/api/sub/${workspaceId}`, (message: IMessage) => {
+          const newMessage = JSON.parse(message.body) as Message;
           setMessages((prevMessages) => [...prevMessages, newMessage]);
         });
+
         client.publish({
           destination: `/api/pub/${workspaceId}`,
           body: JSON.stringify({
@@ -70,8 +76,16 @@ const App: React.FC = () => {
           }),
           headers: { Authorization: TOKEN },
         });
-      }, 
+      },
+      onStompError: (frame) => {
+        console.error('Broker reported error: ' + frame.headers['message']);
+        console.error('Additional details: ' + frame.body);
+      },
+      onWebSocketError: (event) => {
+        console.error('WebSocket error', event);
+      },
       onDisconnect: () => {
+        console.log('Disconnected from WebSocket');
         client.publish({
           destination: `/api/pub/${workspaceId}`,
           body: JSON.stringify({
@@ -80,22 +94,25 @@ const App: React.FC = () => {
           }),
           headers: { Authorization: TOKEN },
         });
+        client.deactivate();
+        setIsConnected(false);
+      },
+      onWebSocketClose: () => {
+        console.log('WebSocket closed');
+        setIsConnected(false);
       },
     } as StompConfig);
 
     client.activate();
     clientRef.current = client;
+  }, []);
 
-    return () => {
-      client.deactivate();
-    };
-  }, [])
-
-  const sendMessage = () => {
-    if (!inputMessage) {
+  const sendMessage = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || !isConnected || !clientRef.current) {
       return;
     }
-
+    console.log(inputMessage)
     const message: PubMessage = {
       messageType: 'TALK',
       message: inputMessage,
@@ -115,7 +132,7 @@ const App: React.FC = () => {
   return (
     <div>
       <div>
-        채팅 (<span>4</span>)
+        채팅 (<span>참여인원</span>)
       </div>
 
       <input type="text" name="" id="" placeholder="Search" />
@@ -135,14 +152,13 @@ const App: React.FC = () => {
         )}
       </div>
 
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        sendMessage();
-      }} >
+      <form
+        onSubmit={(e) => sendMessage(e)}
+      >
         <input
           type="text"
           name="message"
-          placeholder='채팅을 입력하세요'
+          placeholder="채팅을 입력하세요"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
         />
