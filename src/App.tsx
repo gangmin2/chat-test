@@ -54,6 +54,9 @@ const App: React.FC = () => {
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
+      beforeConnect: () => {
+        console.log('before connected');
+      },
       onConnect: () => {
         client.subscribe(`/api/sub/${workspaceId}`, (message) => {
           const newMessage = JSON.parse(message.body);
@@ -67,7 +70,7 @@ const App: React.FC = () => {
           }),
           headers: { Authorization: TOKEN },
         });
-      },
+      }, 
       onDisconnect: () => {
         client.publish({
           destination: `/api/pub/${workspaceId}`,
