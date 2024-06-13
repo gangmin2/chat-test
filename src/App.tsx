@@ -2,7 +2,6 @@ import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { StompConfig, Client, IMessage } from '@stomp/stompjs';
 
 const BASE_URI: string = 'ws://localhost:8080';
-const TOKEN: string = 'accessToken';
 const workspaceId: number = 1;
 const username: string = 'user';
 
@@ -47,9 +46,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const client = new Client({
       brokerURL: `${BASE_URI}/api/ws`,
-      connectHeaders: {
-        Authorization: TOKEN,
-      },
       debug: (str) => {
         console.log(str);
       },
@@ -74,7 +70,6 @@ const App: React.FC = () => {
             messageType: 'ENTER',
             message: `${username} 님이 입장했습니다.`,
           }),
-          headers: { Authorization: TOKEN },
         });
       },
       onStompError: (frame) => {
@@ -92,7 +87,6 @@ const App: React.FC = () => {
             messageType: 'EXIT',
             message: `${username} 님이 퇴장했습니다.`,
           }),
-          headers: { Authorization: TOKEN },
         });
         client.deactivate();
         setIsConnected(false);
@@ -105,6 +99,12 @@ const App: React.FC = () => {
 
     client.activate();
     clientRef.current = client;
+
+    return () => {
+      if (clientRef.current) {
+        clientRef.current.deactivate();
+      }
+    }
   }, []);
 
   const sendMessage = (e: FormEvent<HTMLFormElement>) => {
@@ -123,7 +123,6 @@ const App: React.FC = () => {
     clientRef.current?.publish({
       destination: `/api/pub/${workspaceId}`,
       body: stringifiedMessage,
-      headers: { Authorization: TOKEN },
     });
 
     setInputMessage('');
