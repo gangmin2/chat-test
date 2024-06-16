@@ -11,11 +11,6 @@ interface Message {
   senderName: string;
 }
 
-interface PubMessage {
-  messageType: 'TALK' | 'ENTER' | 'EXIT';
-  message: string;
-}
-
 interface BubbleProps {
   messageType: 'TALK' | 'ENTER' | 'EXIT';
   message: string;
@@ -53,14 +48,19 @@ const App: React.FC = () => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     });
 
-    client.publish({
-      destination: `/api/pub/${workspaceId}`,
-      body: JSON.stringify({
-        messageType: 'ENTER',
-        message: `${username} 님이 입장했습니다.`,
-      }),
-    });
-  }
+    const connected = localStorage.getItem('connected');
+    if (!connected) {
+      client.publish({
+        destination: `/api/pub/${workspaceId}`,
+        body: JSON.stringify({
+          messageType: 'ENTER',
+          message: `${username} 님이 입장했습니다.`,
+        }),
+      });
+      localStorage.setItem('connected', 'OK');
+    }
+  };
+
   const handleWebSocketDisconnect = (client: Client) => {
     console.log('Disconnected from WebSocket');
     client.publish({
@@ -75,7 +75,8 @@ const App: React.FC = () => {
     }
     client.deactivate();
     setIsConnected(false);
-  }
+    localStorage.removeItem('connected');
+  };
 
   useEffect(() => {
     const client = new Client({
@@ -114,7 +115,7 @@ const App: React.FC = () => {
       if (clientRef.current) {
         clientRef.current.deactivate();
       }
-    }
+    };
   }, []);
 
   const sendMessage = (e: FormEvent<HTMLFormElement>) => {
@@ -122,17 +123,13 @@ const App: React.FC = () => {
     if (!inputMessage.trim() || !isConnected || !clientRef.current) {
       return;
     }
-    console.log(inputMessage)
-    const message: PubMessage = {
-      messageType: 'TALK',
-      message: inputMessage,
-    };
-
-    const stringifiedMessage = JSON.stringify(message);
 
     clientRef.current.publish({
       destination: `/api/pub/${workspaceId}`,
-      body: stringifiedMessage,
+      body: JSON.stringify({
+        messageType: 'TALK',
+        message: inputMessage,
+      }),
     });
 
     setInputMessage('');
@@ -161,9 +158,7 @@ const App: React.FC = () => {
         )}
       </div>
 
-      <form
-        onSubmit={(e) => sendMessage(e)}
-      >
+      <form onSubmit={sendMessage}>
         <input
           type="text"
           name="message"
