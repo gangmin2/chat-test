@@ -51,7 +51,7 @@ const App: React.FC = () => {
     const connected = localStorage.getItem('connected');
     if (!connected) {
       client.publish({
-        destination: `/api/pub/${workspaceId}`,
+        destination: `/api/pub/chat/${workspaceId}`,
         body: JSON.stringify({
           messageType: 'ENTER',
           message: `${username} 님이 입장했습니다.`,
@@ -64,7 +64,7 @@ const App: React.FC = () => {
   const handleWebSocketDisconnect = (client: Client) => {
     console.log('Disconnected from WebSocket');
     client.publish({
-      destination: `/api/pub/${workspaceId}`,
+      destination: `/api/pub/chat/${workspaceId}`,
       body: JSON.stringify({
         messageType: 'EXIT',
         message: `${username} 님이 퇴장했습니다.`,
