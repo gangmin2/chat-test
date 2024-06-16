@@ -43,7 +43,7 @@ const App: React.FC = () => {
     console.log('Connected to WebSocket');
     setIsConnected(true);
 
-    subscriptionRef.current = client.subscribe(`/api/sub/${workspaceId}`, (message: IMessage) => {
+    subscriptionRef.current = client.subscribe(`/api/sub/chat/${workspaceId}`, (message: IMessage) => {
       const newMessage = JSON.parse(message.body) as Message;
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     });
@@ -125,7 +125,7 @@ const App: React.FC = () => {
     }
 
     clientRef.current.publish({
-      destination: `/api/pub/${workspaceId}`,
+      destination: `/api/pub/chat/${workspaceId}`,
       body: JSON.stringify({
         messageType: 'TALK',
         message: inputMessage,
