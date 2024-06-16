@@ -1,5 +1,5 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
-import { StompConfig, Client, IMessage } from '@stomp/stompjs';
+import { StompConfig, Client, IMessage, StompSubscription } from '@stomp/stompjs';
 
 const BASE_URI: string = 'ws://localhost:8080';
 const workspaceId: number = 1;
@@ -42,36 +42,50 @@ const App: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const clientRef = useRef<Client | null>(null);
+  const subscriptionRef = useRef<StompSubscription | null>(null);
+
+  const handleWebSocketConnect = (client: Client) => {
+    console.log('Connected to WebSocket');
+    setIsConnected(true);
+
+    subscriptionRef.current = client.subscribe(`/api/sub/${workspaceId}`, (message: IMessage) => {
+      const newMessage = JSON.parse(message.body) as Message;
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+    });
+
+    client.publish({
+      destination: `/api/pub/${workspaceId}`,
+      body: JSON.stringify({
+        messageType: 'ENTER',
+        message: `${username} 님이 입장했습니다.`,
+      }),
+    });
+  }
+  const handleWebSocketDisconnect = (client: Client) => {
+    console.log('Disconnected from WebSocket');
+    client.publish({
+      destination: `/api/pub/${workspaceId}`,
+      body: JSON.stringify({
+        messageType: 'EXIT',
+        message: `${username} 님이 퇴장했습니다.`,
+      }),
+    });
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
+    client.deactivate();
+    setIsConnected(false);
+  }
 
   useEffect(() => {
     const client = new Client({
       brokerURL: `${BASE_URI}/api/ws`,
       debug: (str) => {
-        console.log(str);
+        console.debug(str);
       },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      beforeConnect: () => {
-        console.log('Attempting to connect...');
-      },
-      onConnect: () => {
-        console.log('Connected to WebSocket');
-        setIsConnected(true);
-
-        client.subscribe(`/api/sub/${workspaceId}`, (message: IMessage) => {
-          const newMessage = JSON.parse(message.body) as Message;
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-        });
-
-        client.publish({
-          destination: `/api/pub/${workspaceId}`,
-          body: JSON.stringify({
-            messageType: 'ENTER',
-            message: `${username} 님이 입장했습니다.`,
-          }),
-        });
-      },
       onStompError: (frame) => {
         console.error('Broker reported error: ' + frame.headers['message']);
         console.error('Additional details: ' + frame.body);
@@ -79,28 +93,24 @@ const App: React.FC = () => {
       onWebSocketError: (event) => {
         console.error('WebSocket error', event);
       },
-      onDisconnect: () => {
-        console.log('Disconnected from WebSocket');
-        client.publish({
-          destination: `/api/pub/${workspaceId}`,
-          body: JSON.stringify({
-            messageType: 'EXIT',
-            message: `${username} 님이 퇴장했습니다.`,
-          }),
-        });
-        client.deactivate();
-        setIsConnected(false);
-      },
       onWebSocketClose: () => {
         console.log('WebSocket closed');
         setIsConnected(false);
       },
+      beforeConnect: () => {
+        console.log('Attempting to connect...');
+      },
+      onConnect: () => handleWebSocketConnect(client),
+      onDisconnect: () => handleWebSocketDisconnect(client),
     } as StompConfig);
 
     client.activate();
     clientRef.current = client;
 
     return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
       if (clientRef.current) {
         clientRef.current.deactivate();
       }
@@ -120,7 +130,7 @@ const App: React.FC = () => {
 
     const stringifiedMessage = JSON.stringify(message);
 
-    clientRef.current?.publish({
+    clientRef.current.publish({
       destination: `/api/pub/${workspaceId}`,
       body: stringifiedMessage,
     });
