@@ -1,9 +1,8 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
-import { StompConfig, Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 
 const BASE_URI: string = 'ws://localhost:8080';
 const workspaceId: number = 1;
-const username: string = 'user';
 
 interface Message {
   messageType: 'TALK' | 'ENTER' | 'EXIT';
@@ -23,10 +22,10 @@ const Bubble: React.FC<BubbleProps> = ({ messageType, message, senderName }) => 
   }
   if (messageType === 'TALK') {
     return (
-      <div style={{ margin: '16px 0' }}>
-        <p style={{ margin: '0' }}>{senderName}</p>
-        <p style={{ backgroundColor: '#eee', width: 'fit-content', padding: '4px 8px', borderRadius: '8px', margin: '0' }}>{message}</p>
-      </div>
+        <div style={{ margin: '16px 0' }}>
+          <p style={{ margin: '0' }}>{senderName}</p>
+          <p style={{ backgroundColor: '#eee', width: 'fit-content', padding: '4px 8px', borderRadius: '8px', margin: '0' }}>{message}</p>
+        </div>
     );
   }
   return null;
@@ -36,6 +35,7 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
   const clientRef = useRef<Client | null>(null);
   const subscriptionRef = useRef<StompSubscription | null>(null);
 
@@ -48,17 +48,23 @@ const App: React.FC = () => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     });
 
-    const connected = localStorage.getItem('connected');
-    if (!connected) {
-      client.publish({
-        destination: `/api/pub/chat/${workspaceId}`,
-        body: JSON.stringify({
-          messageType: 'ENTER',
-          message: `${username} 님이 입장했습니다.`,
-        }),
-      });
-      localStorage.setItem('connected', 'OK');
-    }
+    client.subscribe(`/api/sub/chat/${workspaceId}/count`, (message: IMessage) => {
+      setSubscriberCount(parseInt(message.body, 10));
+    });
+
+    client.publish({
+      destination: `/api/pub/chat/${workspaceId}`,
+      body: JSON.stringify({
+        messageType: 'ENTER',
+        message: ''
+      }),
+    });
+
+    // 요청을 보내 현재 구독자 수를 가져옴
+    client.publish({
+      destination: `/api/pub/chat/${workspaceId}/count`,
+      body: '',
+    });
   };
 
   const handleWebSocketDisconnect = (client: Client) => {
@@ -67,7 +73,7 @@ const App: React.FC = () => {
       destination: `/api/pub/chat/${workspaceId}`,
       body: JSON.stringify({
         messageType: 'EXIT',
-        message: `${username} 님이 퇴장했습니다.`,
+        message: ''
       }),
     });
     if (subscriptionRef.current) {
@@ -75,7 +81,6 @@ const App: React.FC = () => {
     }
     client.deactivate();
     setIsConnected(false);
-    localStorage.removeItem('connected');
   };
 
   useEffect(() => {
@@ -103,7 +108,7 @@ const App: React.FC = () => {
       },
       onConnect: () => handleWebSocketConnect(client),
       onDisconnect: () => handleWebSocketDisconnect(client),
-    } as StompConfig);
+    });
 
     client.activate();
     clientRef.current = client;
@@ -128,7 +133,7 @@ const App: React.FC = () => {
       destination: `/api/pub/chat/${workspaceId}`,
       body: JSON.stringify({
         messageType: 'TALK',
-        message: inputMessage,
+        message: inputMessage
       }),
     });
 
@@ -136,39 +141,39 @@ const App: React.FC = () => {
   };
 
   return (
-    <div>
       <div>
-        채팅 (<span>참여인원</span>)
+        <div>
+          채팅 (<span>{subscriberCount}</span>)
+        </div>
+
+        <input type="text" name="" id="" placeholder="Search" />
+
+        <div>
+          {messages.length === 0 ? (
+              <p>채팅을 시작해보세요</p>
+          ) : (
+              messages.map((msg, index) => (
+                  <Bubble
+                      key={index}
+                      messageType={msg.messageType}
+                      message={msg.message}
+                      senderName={msg.senderName}
+                  />
+              ))
+          )}
+        </div>
+
+        <form onSubmit={sendMessage}>
+          <input
+              type="text"
+              name="message"
+              placeholder="채팅을 입력하세요"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+          />
+          <input type="submit" value="SEND" />
+        </form>
       </div>
-
-      <input type="text" name="" id="" placeholder="Search" />
-
-      <div>
-        {messages.length === 0 ? (
-          <p>채팅을 시작해보세요</p>
-        ) : (
-          messages.map((msg, index) => (
-            <Bubble
-              key={index}
-              messageType={msg.messageType}
-              message={msg.message}
-              senderName={msg.senderName}
-            />
-          ))
-        )}
-      </div>
-
-      <form onSubmit={sendMessage}>
-        <input
-          type="text"
-          name="message"
-          placeholder="채팅을 입력하세요"
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-        />
-        <input type="submit" value="SEND" />
-      </form>
-    </div>
   );
 };
 
