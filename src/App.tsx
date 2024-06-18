@@ -2,7 +2,7 @@ import React, { FormEvent, useEffect, useState, useRef } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-const WEBSOCKET_URI: string = 'ws://localhost:8080';
+const WEBSOCKET_URI: string = 'http://localhost:8080';
 const workspaceId: number = 1;
 
 interface Message {
